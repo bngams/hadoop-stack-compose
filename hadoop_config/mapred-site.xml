@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<configuration>
+  <!-- MapReduce framework runs on YARN -->
+  <property>
+    <name>mapreduce.framework.name</name>
+    <value>yarn</value>
+  </property>
+
+  <!-- MapReduce application classpath -->
+  <property>
+    <name>mapreduce.application.classpath</name>
+    <value>$HADOOP_HOME/share/hadoop/mapreduce/*:$HADOOP_HOME/share/hadoop/mapreduce/lib/*</value>
+  </property>
+
+  <!-- Job history server address -->
+  <property>
+    <name>mapreduce.jobhistory.address</name>
+    <value>resourcemanager:10020</value>
+  </property>
+
+  <!-- Job history webapp address -->
+  <property>
+    <name>mapreduce.jobhistory.webapp.address</name>
+    <value>resourcemanager:19888</value>
+  </property>
+
+  <!-- Map memory -->
+  <property>
+    <name>mapreduce.map.memory.mb</name>
+    <value>1024</value>
+  </property>
+
+  <!-- Reduce memory -->
+  <property>
+    <name>mapreduce.reduce.memory.mb</name>
+    <value>1024</value>
+  </property>
+</configuration>

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<configuration>
+  <!-- Point Hadoop clients (including Hive) to the NameNode -->
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://namenode:8020</value>
+  </property>
+
+  <!-- Enable WebHDFS (accessed by Hue) -->
+  <property>
+    <name>dfs.webhdfs.enabled</name>
+    <value>true</value>
+  </property>
+
+  <!-- Temporary directory -->
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/tmp/hadoop-${user.name}</value>
+  </property>
+</configuration>

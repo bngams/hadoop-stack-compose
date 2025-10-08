@@ -1,0 +1,237 @@
+version: "3.8"
+
+networks:
+  hadoop:
+    name: hadoop
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.0.0/16
+
+volumes:
+  namenode_data:
+  datanode1_data:
+  datanode2_data:
+  hive_warehouse:
+  hive_db:
+
+services:
+  # ---------- Hadoop HDFS ----------
+  namenode:
+    image: apache/hadoop:3.3.5
+    container_name: namenode
+    hostname: namenode
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - namenode_data:/opt/hadoop/data/nameNode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop
+      - ./scripts/start-hdfs.sh:/start-hdfs.sh:ro
+    command: ["/bin/bash", "/start-hdfs.sh"]
+    ports:
+      - "9870:9870"   # NameNode Web UI
+      - "8020:8020"   # HDFS RPC
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl -sf http://localhost:9870 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.2
+
+  datanode1:
+    image: apache/hadoop:3.3.5
+    container_name: datanode1
+    hostname: datanode1
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - datanode1_data:/opt/hadoop/data/dataNode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop
+      - ./scripts/init-datanode.sh:/init-datanode.sh:ro
+    depends_on:
+      - namenode
+    command: ["/bin/bash", "/init-datanode.sh"]
+    ports:
+      - "9864:9864"  # DataNode Web UI
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.3
+
+  datanode2:
+    image: apache/hadoop:3.3.5
+    container_name: datanode2
+    hostname: datanode2
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - datanode2_data:/opt/hadoop/data/dataNode
+      - ./hadoop_config:/opt/hadoop/etc/hadoop
+      - ./scripts/init-datanode.sh:/init-datanode.sh:ro
+    depends_on:
+      - namenode
+    command: ["/bin/bash", "/init-datanode.sh"]
+    ports:
+      - "9865:9864"  # DataNode Web UI (mapped to different host port)
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.4
+
+  # ---------- YARN ResourceManager ----------
+  resourcemanager:
+    image: apache/hadoop:3.3.5
+    container_name: resourcemanager
+    hostname: resourcemanager
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - ./hadoop_config:/opt/hadoop/etc/hadoop
+      - ./scripts/start-yarn-rm.sh:/start-yarn-rm.sh:ro
+    depends_on:
+      - namenode
+    command: ["/bin/bash", "/start-yarn-rm.sh"]
+    ports:
+      - "8088:8088"   # ResourceManager Web UI
+      - "8030:8030"   # Scheduler
+      - "8031:8031"   # Resource Tracker
+      - "8032:8032"   # ApplicationMaster
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl -sf http://localhost:8088 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.5
+
+  # ---------- YARN NodeManager ----------
+  nodemanager:
+    image: apache/hadoop:3.3.5
+    container_name: nodemanager
+    hostname: nodemanager
+    user: root
+    environment:
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - ./hadoop_config:/opt/hadoop/etc/hadoop
+      - ./scripts/start-yarn-nm.sh:/start-yarn-nm.sh:ro
+    depends_on:
+      - resourcemanager
+    command: ["/bin/bash", "/start-yarn-nm.sh"]
+    ports:
+      - "8042:8042"   # NodeManager Web UI
+    healthcheck:
+      test: ["CMD", "bash", "-c", "curl -sf http://localhost:8042 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.6
+
+  # ---------- Postgres for Hive Metastore ----------
+  postgres:
+    image: postgres:15
+    container_name: hive-postgres
+    environment:
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hivepw
+      POSTGRES_DB: metastore_db
+    volumes:
+      - hive_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.10
+
+  # ---------- Hive Metastore ----------
+  metastore:
+    image: apache/hive:4.0.1
+    container_name: hive-metastore
+    depends_on:
+      - postgres
+      - namenode
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+      SERVICE_OPTS: >-
+        -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://postgres:5432/metastore_db
+        -Djavax.jdo.option.ConnectionUserName=hive
+        -Djavax.jdo.option.ConnectionPassword=hivepw
+    volumes:
+      - hive_warehouse:/opt/hive/data/warehouse
+      - ./jars/postgresql-42.7.5.jar:/opt/hive/lib/postgres.jar:ro
+      - ./hadoop_config/core-site.xml:/opt/hive/conf/core-site.xml:ro
+      - ./hadoop_config/hdfs-site.xml:/opt/hive/conf/hdfs-site.xml:ro
+    ports:
+      - "9083:9083" # Metastore Thrift
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9083"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.11
+
+  # ---------- HiveServer2 ----------
+  hiveserver2:
+    image: apache/hive:4.0.1
+    container_name: hive-hs2
+    depends_on:
+      - metastore
+    environment:
+      SERVICE_NAME: hiveserver2
+      IS_RESUME: "true"
+      SERVICE_OPTS: >-
+        -Dhive.metastore.uris=thrift://metastore:9083
+    volumes:
+      - hive_warehouse:/opt/hive/data/warehouse
+      - ./jars/postgresql-42.7.5.jar:/opt/hive/lib/postgres.jar:ro
+      - ./hadoop_config/core-site.xml:/opt/hive/conf/core-site.xml:ro
+      - ./hadoop_config/hdfs-site.xml:/opt/hive/conf/hdfs-site.xml:ro
+      - ./hadoop_config/yarn-site.xml:/opt/hive/conf/yarn-site.xml:ro
+    ports:
+      - "10000:10000" # JDBC
+      - "10002:10002" # Web UI for HS2
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 10000"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.12
+
+  # ---------- Hue ----------
+  hue:
+    image: gethue/hue:latest
+    container_name: hue
+    depends_on:
+      - hiveserver2
+      - namenode
+      - resourcemanager
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./hue/hue.ini:/usr/share/hue/desktop/conf/z-hue.ini:ro
+    environment:
+      - HUE_DATABASE_ENGINE=sqlite3
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8888 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.20
