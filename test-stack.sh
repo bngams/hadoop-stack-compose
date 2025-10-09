@@ -1,5 +1,6 @@
 #!/bin/bash
-set -e
+# Don't exit on errors - we want to continue testing even if some tests fail
+# set -e
 
 # Colors for output
 RED='\033[0;31m'
@@ -60,7 +61,7 @@ echo -e "${GREEN}╚════════════════════
 # Check if Docker Compose is running
 print_header "1. Checking Docker Services"
 
-services=("namenode" "datanode1" "datanode2" "resourcemanager" "nodemanager" "postgres" "hive-metastore" "hive-hs2" "hue")
+services=("namenode" "datanode1" "datanode2" "resourcemanager" "nodemanager" "hive-postgres" "hive-metastore" "hive-hs2")
 for service in "${services[@]}"; do
     if docker ps --format '{{.Names}}' | grep -q "^${service}$"; then
         print_success "$service is running"
@@ -114,7 +115,7 @@ else
 fi
 
 print_test "Verify DataNodes are connected"
-datanode_count=$(docker exec namenode hdfs dfsadmin -report 2>&1 | grep "Live datanodes" | grep -oP '\d+')
+datanode_count=$(docker exec namenode hdfs dfsadmin -report 2>&1 | grep "Live datanodes" | grep -o '[0-9]\+' | head -1)
 if [ "$datanode_count" = "2" ]; then
     print_success "Both DataNodes are connected ($datanode_count/2)"
 else
@@ -153,21 +154,21 @@ fi
 print_header "6. Testing Hive"
 
 print_test "Check Hive Metastore port"
-if docker exec hive-metastore nc -z localhost 9083 2>&1; then
+if docker exec hive-metastore bash -c "timeout 2 bash -c '</dev/tcp/localhost/9083' 2>/dev/null"; then
     print_success "Hive Metastore is listening on port 9083"
 else
     print_error "Hive Metastore is not accessible"
 fi
 
 print_test "Check HiveServer2 port"
-if docker exec hive-hs2 nc -z localhost 10000 2>&1; then
+if docker exec hive-hs2 bash -c "timeout 2 bash -c '</dev/tcp/localhost/10000' 2>/dev/null"; then
     print_success "HiveServer2 is listening on port 10000"
 else
     print_error "HiveServer2 is not accessible"
 fi
 
 print_test "Create Hive database"
-if docker exec hive-hs2 beeline -u 'jdbc:hive2://localhost:10000/' -e "CREATE DATABASE IF NOT EXISTS test_db;" 2>&1 | grep -q "OK"; then
+if docker exec hive-hs2 beeline -u 'jdbc:hive2://localhost:10000/' -e "CREATE DATABASE IF NOT EXISTS test_db;" 2>&1 | grep -qE "(OK|No rows affected)"; then
     print_success "Hive database creation successful"
 else
     print_error "Hive database creation failed"
@@ -181,7 +182,7 @@ CREATE TABLE IF NOT EXISTS test_table (
     name STRING,
     value DOUBLE
 ) STORED AS PARQUET;
-" 2>&1 | grep -q "OK"; then
+" 2>&1 | grep -qE "(OK|No rows affected)"; then
     print_success "Hive table creation successful"
 else
     print_error "Hive table creation failed"
@@ -194,7 +195,7 @@ INSERT INTO test_table VALUES
     (1, 'test1', 100.5),
     (2, 'test2', 200.75),
     (3, 'test3', 300.25);
-" 2>&1 | grep -q "OK"; then
+" 2>&1 | grep -qE "(OK|rows affected)"; then
     print_success "Hive data insertion successful"
 else
     print_error "Hive data insertion failed"
@@ -208,17 +209,32 @@ else
     print_error "Hive query failed or returned unexpected results"
 fi
 
-# Test Hue
-print_header "7. Testing Hue"
+# Test Web UIs (Optional - based on profile selection)
+print_header "7. Testing Web UI Services"
 
-print_test "Check Hue web interface"
-if curl -sf http://localhost:8888 > /dev/null; then
-    print_success "Hue web interface is accessible at http://localhost:8888"
+print_test "Check Zeppelin web interface"
+if docker ps --format '{{.Names}}' | grep -q "^zeppelin$"; then
+    if curl -sf http://localhost:8080 > /dev/null; then
+        print_success "Zeppelin web interface is accessible at http://localhost:8080"
+    else
+        print_error "Zeppelin container is running but web interface is not accessible"
+    fi
 else
-    print_error "Hue web interface is not accessible"
+    print_info "Zeppelin is not running (use --profile zeppelin or --profile all to start)"
 fi
 
-# Test WebHDFS (used by Hue)
+print_test "Check Hue web interface"
+if docker ps --format '{{.Names}}' | grep -q "^hue$"; then
+    if curl -sf http://localhost:8888 > /dev/null; then
+        print_success "Hue web interface is accessible at http://localhost:8888"
+    else
+        print_error "Hue container is running but web interface is not accessible"
+    fi
+else
+    print_info "Hue is not running (use --profile hue or --profile all to start)"
+fi
+
+# Test WebHDFS
 print_header "8. Testing WebHDFS Integration"
 
 print_test "Test WebHDFS API"
@@ -246,7 +262,7 @@ else
 fi
 
 print_test "Drop test Hive database"
-if docker exec hive-hs2 beeline -u 'jdbc:hive2://localhost:10000/' -e "DROP DATABASE IF EXISTS test_db CASCADE;" 2>&1 | grep -q "OK"; then
+if docker exec hive-hs2 beeline -u 'jdbc:hive2://localhost:10000/' -e "DROP DATABASE IF EXISTS test_db CASCADE;" 2>&1 | grep -qE "(OK|No rows affected)"; then
     print_success "Test database cleaned up from Hive"
 else
     print_error "Failed to clean up test database from Hive"

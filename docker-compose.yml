@@ -213,9 +213,36 @@ services:
       hadoop:
         ipv4_address: 172.22.0.12
 
-  # ---------- Hue ----------
+  # ---------- Apache Zeppelin (Recommended for ARM64/Apple Silicon) ----------
+  zeppelin:
+    image: apache/zeppelin:0.12.0
+    platform: linux/amd64
+    container_name: zeppelin
+    depends_on:
+      - hiveserver2
+      - namenode
+      - resourcemanager
+    ports:
+      - "8080:8080"
+    environment:
+      ZEPPELIN_ADDR: 0.0.0.0
+      ZEPPELIN_PORT: 8080
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.20
+    profiles:
+      - zeppelin
+      - all
+
+  # ---------- Hue (Alternative UI - May have issues on ARM64/Apple Silicon) ----------
   hue:
     image: gethue/hue:latest
+    platform: linux/amd64
     container_name: hue
     depends_on:
       - hiveserver2
@@ -227,6 +254,7 @@ services:
       - ./hue/hue.ini:/usr/share/hue/desktop/conf/z-hue.ini:ro
     environment:
       - HUE_DATABASE_ENGINE=sqlite3
+      - POLARS_SKIP_CPU_CHECK=1
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8888 || exit 1"]
       interval: 10s
@@ -234,4 +262,7 @@ services:
       retries: 15
     networks:
       hadoop:
-        ipv4_address: 172.22.0.20
+        ipv4_address: 172.22.0.21
+    profiles:
+      - hue
+      - all

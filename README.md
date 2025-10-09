@@ -4,7 +4,7 @@ Complete containerized big data stack featuring:
 - **Hadoop HDFS** (NameNode + 2 DataNodes)
 - **YARN** (ResourceManager + NodeManager)
 - **Apache Hive** (Metastore + HiveServer2)
-- **Hue** (Web UI for HDFS, Hive, and YARN)
+- **Web UI Options**: Apache Zeppelin (recommended for ARM64) or Hue
 - **PostgreSQL** (Hive Metastore backend)
 
 ## Introduction
@@ -28,11 +28,19 @@ Hive lets you query massive datasets using SQL instead of writing complex MapRed
 - **Official site**: https://hive.apache.org/
 - **Quick start**: https://hive.apache.org/development/quickstart/
 
-### **Hue** - Web Interface
-Hue is the graphical dashboard that makes everything accessible through your browser. Instead of typing commands, you can browse files, write SQL queries, and monitor jobs with a friendly interface. It's like having a GUI desktop for your entire big data stack.
+### **Hue** - Web Interface 
+Hue is an alternative graphical dashboard that provides a browser interface for HDFS, Hive, and YARN. It offers file browsing, SQL editing, and job monitoring capabilities.
 
 - **Official site**: https://gethue.com/
 - **Documentation**: https://docs.gethue.com/
+- **Note**: May have stability issues on ARM64/Apple Silicon (Rosetta emulation)
+
+### **Apache Zeppelin** - Notebook-based Web Interface (Alternative)
+Zeppelin is a web-based notebook that lets you interactively query and visualize data. Write SQL queries, create charts, and document your analysis all in one place. It's like Jupyter Notebook, but optimized for big data tools like Hive and Spark.
+
+- **Official site**: https://zeppelin.apache.org/
+- **Documentation**: https://zeppelin.apache.org/docs/latest/
+- **Note**: Recommended for ARM64/Apple Silicon users
 
 ### **PostgreSQL** - Metadata Storage
 PostgreSQL stores Hive's "metadata" - information about your tables, columns, and where data is stored. It's like the catalog in a library that tells you where to find books, but for your big data tables.
@@ -82,32 +90,76 @@ graph TB
 
 ## Quick Start
 
-1. **Start the stack:**
-   ```bash
-   docker compose up -d
-   ```
+### 1. Start Core Services (HDFS, YARN, Hive)
 
-2. **Check services are healthy:**
-   ```bash
-   docker compose ps
-   ```
+```bash
+docker compose up -d
+```
 
-3. **Access the UIs:**
-   - **Hue**: http://localhost:8888 (SQL editor, HDFS browser, YARN monitor)
-   - **NameNode**: http://localhost:9870
-   - **ResourceManager**: http://localhost:8088
-   - **HiveServer2**: http://localhost:10002
+This starts all core Hadoop services without a web UI.
 
-4. **Run the test suite (optional):**
-   ```bash
-   ./test-stack.sh
-   ```
-   This will verify all components are working correctly by:
-   - Checking all services are running
-   - Testing HDFS operations (create, read, write)
-   - Verifying YARN ResourceManager and NodeManager
-   - Testing Hive database and table operations
-   - Validating Hue and WebHDFS connectivity
+### 2. Choose Your Web UI
+
+#### **Option A: Apache Zeppelin (Recommended for ARM64/Apple Silicon)**
+
+```bash
+docker compose --profile zeppelin up -d
+```
+
+Access at http://localhost:8080
+
+✅ **Advantages:**
+- More stable on ARM64/Apple Silicon
+- Java-based (no Python CPU instruction issues)
+- Interactive notebook interface
+- Better for data analysis and visualization
+
+#### **Option B: Hue (May have issues on ARM64)**
+
+```bash
+docker compose --profile hue up -d
+```
+
+Access at http://localhost:8888
+
+⚠️ **Note:** May crash with "Illegal instruction" errors on ARM64 due to Polars library incompatibility
+
+#### **Option C: Both UIs**
+
+```bash
+docker compose --profile all up -d
+```
+
+- Zeppelin: http://localhost:8080
+- Hue: http://localhost:8888
+
+### 3. Verify Services
+
+```bash
+docker compose ps
+```
+
+### 4. Access Web Interfaces
+
+- **Zeppelin** (if enabled): http://localhost:8080
+- **Hue** (if enabled): http://localhost:8888
+- **NameNode**: http://localhost:9870
+- **ResourceManager**: http://localhost:8088
+- **HiveServer2**: http://localhost:10002
+
+### 5. Run Test Suite (Optional)
+
+```bash
+bash test-stack.sh
+```
+
+This validates:
+- All services are running
+- HDFS operations (create, read, write)
+- YARN cluster status
+- Hive database and table operations
+- Web UI accessibility
+- WebHDFS API
 
 ## Service Details
 
@@ -145,13 +197,20 @@ graph TB
   - JDBC/ODBC interface to Hive
   - Executes HiveQL queries
 
-### Hue
+### Web UIs (Optional - based on profile)
+
+- **Zeppelin** (`zeppelin:8080`)
+  - Notebook-based web interface
+  - Interactive SQL queries (Hive JDBC)
+  - Data visualization
+  - Profile: `zeppelin` or `all`
+
 - **Hue** (`hue:8888`)
-  - Web-based interface for:
-    - SQL queries (Hive)
-    - HDFS file browser (WebHDFS)
-    - YARN job monitoring
+  - Alternative web-based interface
+  - SQL editor, HDFS browser, YARN monitor
   - Default login: create on first access
+  - Profile: `hue` or `all`
+  - ⚠️ May have issues on ARM64/Apple Silicon
 
 ## Usage Examples
 
@@ -201,7 +260,32 @@ docker exec -it namenode hdfs dfs -ls /user/data
 docker exec -it namenode hdfs dfs -cat /user/data/test.txt
 ```
 
-### 3. Using Hue Web UI
+### 3. Using Zeppelin Web UI
+
+1. Open http://localhost:8080
+2. Create a new notebook
+3. Use JDBC interpreter to query Hive:
+
+```sql
+%jdbc
+
+SHOW DATABASES;
+
+CREATE DATABASE demo;
+USE demo;
+
+CREATE TABLE users (
+  id INT,
+  name STRING,
+  email STRING
+) STORED AS PARQUET;
+
+INSERT INTO users VALUES (1, 'Alice', 'alice@example.com');
+
+SELECT * FROM users;
+```
+
+### 4. Using Hue Web UI (if enabled)
 
 1. Open http://localhost:8888
 2. Create a user account on first access
@@ -209,7 +293,7 @@ docker exec -it namenode hdfs dfs -cat /user/data/test.txt
 4. **File Browser**: Click "Files" to browse HDFS via WebHDFS
 5. **YARN Jobs**: Click "Jobs" to monitor MapReduce/Spark jobs
 
-### 4. Running a MapReduce Job
+### 5. Running a MapReduce Job
 
 Example word count:
 ```bash
@@ -253,7 +337,8 @@ Custom bridge network `hadoop` (172.22.0.0/16):
 - PostgreSQL: 172.22.0.10
 - Metastore: 172.22.0.11
 - HiveServer2: 172.22.0.12
-- Hue: 172.22.0.20
+- Zeppelin: 172.22.0.20 (if using `--profile zeppelin` or `--profile all`)
+- Hue: 172.22.0.21 (if using `--profile hue` or `--profile all`)
 
 ## Volumes
 
@@ -264,7 +349,48 @@ Persistent data stored in Docker volumes:
 - `hive_warehouse` - Hive table data
 - `hive_db` - PostgreSQL Hive metastore
 
+## Platform-Specific Notes
+
+### Apple Silicon (M1/M2/M3/M4)
+
+All services use `platform: linux/amd64` for x86 emulation via Rosetta 2.
+
+**Recommended:**
+- Use **Zeppelin** instead of Hue (more stable under emulation)
+- Enable Rosetta emulation in Docker Desktop settings
+- Allocate at least 8GB RAM to Docker Desktop
+
+**Starting services:**
+```bash
+# Start with Zeppelin (recommended)
+docker compose --profile zeppelin up -d
+
+# Or try Hue (may crash)
+docker compose --profile hue up -d
+```
+
+### Intel/AMD64
+
+Both Zeppelin and Hue should work without issues. Choose based on preference.
+
 ## Troubleshooting
+
+### Hue crashes with "Illegal instruction" (ARM64)
+**Cause:** Polars library incompatibility with ARM64 under Rosetta
+
+**Solution:** Use Zeppelin instead:
+```bash
+docker compose stop hue
+docker compose --profile zeppelin up -d
+```
+
+### YARN ResourceManager fails to start
+**Error:** "Queue configuration missing child queue names for root"
+
+**Solution:** Ensure `capacity-scheduler.xml` exists in `hadoop_config/`:
+```bash
+docker compose restart resourcemanager
+```
 
 ### Hive connection issues
 ```bash
