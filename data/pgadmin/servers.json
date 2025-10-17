@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Source Database",
+      "Group": "Servers",
+      "Host": "postgres-source",
+      "Port": 5432,
+      "MaintenanceDB": "sourcedb",
+      "Username": "sourceuser",
+      "SSLMode": "prefer",
+      "PassFile": "/pgpass"
+    }
+  }
+}

@@ -14,6 +14,19 @@ volumes:
   datanode2_data:
   hive_warehouse:
   hive_db:
+  source_db:
+  airflow_db:
+  pgadmin_data:
+  airflow_logs:
+  airflow_dags:
+  airflow_plugins:
+  airflow_data:
+  nifi_conf:
+  nifi_logs:
+  nifi_flowfile_repository:
+  nifi_content_repository:
+  nifi_provenance_repository:
+  nifi_state:
 
 services:
   # ---------- Hadoop HDFS ----------
@@ -265,4 +278,153 @@ services:
         ipv4_address: 172.22.0.21
     profiles:
       - hue
+      - all
+
+  # ---------- Source Postgres Database ----------
+  postgres-source:
+    image: postgres:15
+    container_name: postgres-source
+    environment:
+      POSTGRES_USER: sourceuser
+      POSTGRES_PASSWORD: sourcepw
+      POSTGRES_DB: sourcedb
+    volumes:
+      - source_db:/var/lib/postgresql/data
+      - ./data/sql:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sourceuser -d sourcedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.30
+
+  # ---------- Postgres for Airflow Metadata ----------
+  postgres-airflow:
+    image: postgres:15
+    container_name: postgres-airflow
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.32
+    profiles:
+      - airflow
+      - all
+
+  # ---------- pgAdmin ----------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./data/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./data/pgadmin/pgpass:/pgpass:ro
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres-source
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.31
+
+  # ---------- Apache Airflow ----------
+  airflow:
+    image: apache/airflow:2.10.4-python3.11
+    container_name: airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres-airflow:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW_UID: 50000
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+      # Airflow Connections
+      AIRFLOW_CONN_POSTGRES_SOURCE: 'postgresql://sourceuser:sourcepw@postgres-source:5432/sourcedb'
+      AIRFLOW_CONN_HIVE_CLI: 'hive_cli://hiveserver2:10000/default'
+      AIRFLOW_CONN_HIVESERVER2: 'jdbc:hive2://hiveserver2:10000/default'
+      AIRFLOW_CONN_HDFS: 'hdfs://namenode:8020'
+      AIRFLOW_CONN_WEBHDFS: 'http://namenode:9870'
+    volumes:
+      - airflow_dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+      - airflow_plugins:/opt/airflow/plugins
+      - airflow_data:/opt/airflow/data
+      - ./data/csv:/opt/airflow/csv:ro
+    ports:
+      - "8081:8080"
+    command: >
+      bash -c "airflow db init &&
+               airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
+               airflow webserver & airflow scheduler"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      - postgres-airflow
+      - postgres-source
+      - hiveserver2
+      - namenode
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.40
+    profiles:
+      - airflow
+      - all
+
+  # ---------- Apache NiFi ----------
+  nifi:
+    image: apache/nifi:2.0.0
+    container_name: nifi
+    environment:
+      SINGLE_USER_CREDENTIALS_USERNAME: admin
+      SINGLE_USER_CREDENTIALS_PASSWORD: adminadminadmin
+      NIFI_WEB_HTTP_PORT: 8443
+      NIFI_JVM_HEAP_INIT: 512m
+      NIFI_JVM_HEAP_MAX: 1g
+    volumes:
+      - nifi_conf:/opt/nifi/nifi-current/conf
+      - nifi_logs:/opt/nifi/nifi-current/logs
+      - nifi_flowfile_repository:/opt/nifi/nifi-current/flowfile_repository
+      - nifi_content_repository:/opt/nifi/nifi-current/content_repository
+      - nifi_provenance_repository:/opt/nifi/nifi-current/provenance_repository
+      - nifi_state:/opt/nifi/nifi-current/state
+      - ./data/csv:/opt/nifi/csv:ro
+    ports:
+      - "8443:8443"
+    depends_on:
+      - postgres-source
+      - namenode
+    healthcheck:
+      test: ["CMD-SHELL", "curl -k https://localhost:8443/nifi || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 120s
+    networks:
+      hadoop:
+        ipv4_address: 172.22.0.41
+    profiles:
+      - nifi
       - all

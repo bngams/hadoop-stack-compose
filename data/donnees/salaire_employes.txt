@@ -1,0 +1,34 @@
+Sexe;Secteur;Salaire;Code_postal;id_empl
+F;sante;20000euro/an;59000;1
+M;sante;35000euro/an;80000;2
+F;sante;22000euro/an;77000;3
+F;education;30000euro/an;95000;4
+M;industrie;45000euro/an;80200;5
+M;profession juridique privé;70000euro/an;59000;6
+M;sante;45000euro/an;75780;7
+F;soin et education;38000euro/an;76000;8
+F;industrie;45000euro/an;91000;9
+M;agriculture;30000euro/an;14000;10
+M;sante;55000euro/an;78000;11
+F;arts et spectacle;41000euro/an;6000;12
+M;transports aeriens;144000euro/an;13000;13
+F;sante;41000euro/an;55000;14
+F;pharmaceutique;75000euro/an;78000;15
+F;industrie;25000euro/an;90100;16
+F;expert comptable;37000euro/an;80200;17
+M;transport;80000euro/an;75000;18
+F;education;28000euro/an;35000;19
+M;fabrication et distribution des patisserie-viennoiserie;65000euro/an;92000;20
+M;industrie;25000euro/an;49400;21
+F;sante;80000euro/an;91000;22
+M;agriculture;57000euro/an;28800;23
+M;commerce;38000euro/an;60000;24
+F;transport et entroposage;40000euro/an;76000;25
+F;pharmaceutique;42000euo/an;59000;26
+F;fonction publique;35000euro/an;1400;27
+F;education;45000euro/an;59000;28
+M;transport;90000euro/an;1200;29
+M;profession juridique privé;200000euro/an;77000;30
+M;transports aeriens;120000euro/an;13780;31
+M;education;55000euro/an;76000;32
+M;budgetisation;40000euro/an;94390;33

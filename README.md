@@ -5,7 +5,9 @@ Complete containerized big data stack featuring:
 - **YARN** (ResourceManager + NodeManager)
 - **Apache Hive** (Metastore + HiveServer2)
 - **Web UI Options**: Apache Zeppelin (recommended for ARM64) or Hue
-- **PostgreSQL** (Hive Metastore backend)
+- **PostgreSQL** (Hive Metastore backend + Source DB)
+- **ETL Tools**: Apache Airflow & Apache NiFi (optional)
+- **pgAdmin** (Database management UI)
 
 ## Introduction
 
@@ -42,10 +44,33 @@ Zeppelin is a web-based notebook that lets you interactively query and visualize
 - **Documentation**: https://zeppelin.apache.org/docs/latest/
 - **Note**: Recommended for ARM64/Apple Silicon users
 
-### **PostgreSQL** - Metadata Storage
-PostgreSQL stores Hive's "metadata" - information about your tables, columns, and where data is stored. It's like the catalog in a library that tells you where to find books, but for your big data tables.
+### **PostgreSQL** - Metadata & Data Storage
+PostgreSQL serves multiple roles in this stack:
+- **Hive Metastore**: Stores metadata about Hive tables, columns, and partitions
+- **Source Database**: Simulates operational databases for ETL workflows
+- **Airflow Metadata**: Stores Airflow DAG runs, task states, and connections (when using Airflow)
 
 - **Official site**: https://www.postgresql.org/
+
+### **Apache Airflow** - Workflow Orchestration (Optional)
+Airflow is a platform for programmatically authoring, scheduling, and monitoring data pipelines. Write Python code to define ETL workflows (DAGs) that extract from Postgres, transform data, and load into HDFS/Hive.
+
+- **Official site**: https://airflow.apache.org/
+- **Documentation**: https://airflow.apache.org/docs/
+- **Use case**: Code-first approach to building ETL pipelines with dependencies and retry logic
+
+### **Apache NiFi** - Visual ETL Tool (Optional)
+NiFi provides a web-based visual interface for designing data flows. Drag-and-drop processors to route, transform, and deliver data between systems without writing code.
+
+- **Official site**: https://nifi.apache.org/
+- **Documentation**: https://nifi.apache.org/docs.html
+- **Use case**: Visual, flow-based ETL design; real-time data ingestion and routing
+
+### **pgAdmin** - Database Management UI
+pgAdmin is a web-based administration tool for PostgreSQL. Browse databases, run SQL queries, and manage database objects through an intuitive interface.
+
+- **Official site**: https://www.pgadmin.org/
+- **Documentation**: https://www.pgadmin.org/docs/
 
 ## Architecture
 
@@ -85,8 +110,8 @@ graph TB
 
 - Docker Desktop or Docker Engine
 - Docker Compose v3.8+
-- At least 8GB RAM available for Docker
-- Ports available: 8020, 8088, 8888, 9083, 9864, 9865, 9870, 10000, 10002
+- At least 8GB RAM available for Docker (12GB recommended with ETL tools)
+- Ports available: 5050, 5432, 8020, 8081, 8088, 8443, 8888, 9083, 9864, 9865, 9870, 10000, 10002
 
 ## Quick Start
 
@@ -98,7 +123,7 @@ docker compose up -d
 
 This starts all core Hadoop services without a web UI.
 
-### 2. Choose Your Web UI
+### 2. Choose Your Web UI & Optional Services
 
 #### **Option A: Apache Zeppelin (Recommended for ARM64/Apple Silicon)**
 
@@ -124,14 +149,30 @@ Access at http://localhost:8888
 
 ⚠️ **Note:** May crash with "Illegal instruction" errors on ARM64 due to Polars library incompatibility
 
-#### **Option C: Both UIs**
+#### **Option C: Add ETL Tools**
+
+Start with Airflow (code-based ETL):
+```bash
+docker compose --profile airflow up -d
+```
+
+Start with NiFi (visual ETL):
+```bash
+docker compose --profile nifi up -d
+```
+
+Start both ETL tools:
+```bash
+docker compose --profile airflow --profile nifi up -d
+```
+
+#### **Option D: Everything**
 
 ```bash
 docker compose --profile all up -d
 ```
 
-- Zeppelin: http://localhost:8080
-- Hue: http://localhost:8888
+All services including Zeppelin, Hue, Airflow, and NiFi
 
 ### 3. Verify Services
 
@@ -141,11 +182,17 @@ docker compose ps
 
 ### 4. Access Web Interfaces
 
-- **Zeppelin** (if enabled): http://localhost:8080
-- **Hue** (if enabled): http://localhost:8888
+**Core Services:**
 - **NameNode**: http://localhost:9870
 - **ResourceManager**: http://localhost:8088
 - **HiveServer2**: http://localhost:10002
+
+**Optional UIs (based on profile):**
+- **Zeppelin**: http://localhost:8080
+- **Hue**: http://localhost:8888
+- **pgAdmin**: http://localhost:5050 (login: `admin@admin.com` / `admin`)
+- **Airflow**: http://localhost:8081 (login: `admin` / `admin`)
+- **NiFi**: https://localhost:8443/nifi (login: `admin` / `adminadminadmin`)
 
 ### 5. Run Test Suite (Optional)
 
@@ -196,6 +243,43 @@ This validates:
 - **HiveServer2** (`hiveserver2:10000`, Web: `10002`)
   - JDBC/ODBC interface to Hive
   - Executes HiveQL queries
+
+### Data Management & ETL Services
+
+- **PostgreSQL Source** (`postgres-source:5432`)
+  - Source database for ETL workflows
+  - Database: `sourcedb`
+  - User: `sourceuser` / Password: `sourcepw`
+  - Pre-configured in pgAdmin
+
+- **pgAdmin** (`pgadmin:80`, host port `5050`)
+  - Web-based PostgreSQL management
+  - Login: `admin@admin.com` / `admin`
+  - Pre-configured connection to source DB
+
+- **PostgreSQL Airflow** (`postgres-airflow:5432`)
+  - Airflow metadata database
+  - Database: `airflow`
+  - User: `airflow` / Password: `airflow`
+  - Profile: `airflow` or `all`
+
+- **Apache Airflow** (`airflow:8080`, host port `8081`)
+  - Workflow orchestration platform
+  - Login: `admin` / `admin`
+  - Pre-configured connections:
+    - `postgres_source` - Source PostgreSQL
+    - `hive_cli` - Hive CLI
+    - `hiveserver2` - HiveServer2 JDBC
+    - `hdfs` - HDFS native
+    - `webhdfs` - WebHDFS REST API
+  - CSV files: Mount `./data/csv/` → accessible at `/opt/airflow/csv`
+  - Profile: `airflow` or `all`
+
+- **Apache NiFi** (`nifi:8443`)
+  - Visual dataflow automation
+  - Login: `admin` / `adminadminadmin`
+  - CSV files: Mount `./data/csv/` → accessible at `/opt/nifi/csv`
+  - Profile: `nifi` or `all`
 
 ### Web UIs (Optional - based on profile)
 
@@ -309,6 +393,70 @@ docker exec -it resourcemanager hadoop jar \
 docker exec -it namenode hdfs dfs -cat /user/output/part-r-00000
 ```
 
+### 6. Using pgAdmin
+
+1. Open http://localhost:5050
+2. Login with `admin@admin.com` / `admin`
+3. **Source Database** server is pre-configured
+4. Click on "Source Database" → Connect
+5. Browse databases, run queries, manage tables
+
+### 7. ETL with Apache Airflow
+
+**Prepare CSV files:**
+```bash
+mkdir -p data/csv
+echo "id,name,value" > data/csv/sample.csv
+echo "1,Alice,100" >> data/csv/sample.csv
+echo "2,Bob,200" >> data/csv/sample.csv
+```
+
+**Example DAG** (`/opt/airflow/dags/csv_to_hive.py`):
+```python
+from airflow import DAG
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.providers.apache.hive.hooks.hive import HiveCliHook
+from airflow.operators.python import PythonOperator
+from datetime import datetime
+
+def load_csv_to_hive():
+    # Read CSV
+    with open('/opt/airflow/csv/sample.csv', 'r') as f:
+        data = f.read()
+
+    # Create Hive table and load data
+    hive = HiveCliHook(hive_cli_conn_id='hive_cli')
+    hive.run_cli("""
+        CREATE DATABASE IF NOT EXISTS etl;
+        USE etl;
+        CREATE TABLE IF NOT EXISTS sample (id INT, name STRING, value INT);
+    """)
+
+with DAG('csv_to_hive', start_date=datetime(2024, 1, 1), schedule='@daily') as dag:
+    load_task = PythonOperator(
+        task_id='load_csv',
+        python_callable=load_csv_to_hive
+    )
+```
+
+Access Airflow at http://localhost:8081 to monitor and trigger DAGs.
+
+### 8. ETL with Apache NiFi
+
+1. Open https://localhost:8443/nifi (accept self-signed certificate)
+2. Login with `admin` / `adminadminadmin`
+3. Drag processors onto canvas:
+   - **GetFile** → Read from `/opt/nifi/csv/`
+   - **PutHDFS** → Write to HDFS at `hdfs://namenode:8020`
+   - **PutSQL** → Write to Postgres at `postgres-source:5432`
+4. Configure connections between processors
+5. Start the flow
+
+**Common NiFi processor configurations:**
+- **HDFS**: Use `hdfs://namenode:8020` as connection URL
+- **Postgres**: JDBC URL `jdbc:postgresql://postgres-source:5432/sourcedb`
+- **Hive**: JDBC URL `jdbc:hive2://hiveserver2:10000/default`
+
 ## Configuration Files
 
 ### Hadoop Configs
@@ -334,20 +482,47 @@ Custom bridge network `hadoop` (172.22.0.0/16):
 - DataNode 2: 172.22.0.4
 - ResourceManager: 172.22.0.5
 - NodeManager: 172.22.0.6
-- PostgreSQL: 172.22.0.10
+- PostgreSQL (Hive Metastore): 172.22.0.10
 - Metastore: 172.22.0.11
 - HiveServer2: 172.22.0.12
-- Zeppelin: 172.22.0.20 (if using `--profile zeppelin` or `--profile all`)
-- Hue: 172.22.0.21 (if using `--profile hue` or `--profile all`)
+- Zeppelin: 172.22.0.20 (profile: `zeppelin` or `all`)
+- Hue: 172.22.0.21 (profile: `hue` or `all`)
+- PostgreSQL Source: 172.22.0.30
+- pgAdmin: 172.22.0.31
+- PostgreSQL Airflow: 172.22.0.32 (profile: `airflow` or `all`)
+- Airflow: 172.22.0.40 (profile: `airflow` or `all`)
+- NiFi: 172.22.0.41 (profile: `nifi` or `all`)
 
 ## Volumes
 
 Persistent data stored in Docker volumes:
+
+**Core Hadoop:**
 - `namenode_data` - HDFS namespace and metadata
 - `datanode1_data` - HDFS block data (node 1)
 - `datanode2_data` - HDFS block data (node 2)
 - `hive_warehouse` - Hive table data
 - `hive_db` - PostgreSQL Hive metastore
+
+**Data & ETL:**
+- `source_db` - PostgreSQL source database
+- `pgadmin_data` - pgAdmin configuration
+- `airflow_db` - Airflow metadata database
+- `airflow_logs` - Airflow task logs
+- `airflow_dags` - Airflow DAG files
+- `airflow_plugins` - Airflow custom plugins
+- `airflow_data` - Airflow working data
+- `nifi_conf` - NiFi configuration
+- `nifi_logs` - NiFi logs
+- `nifi_flowfile_repository` - NiFi FlowFile repo
+- `nifi_content_repository` - NiFi content repo
+- `nifi_provenance_repository` - NiFi provenance repo
+- `nifi_state` - NiFi state data
+
+**Local Mounts:**
+- `./data/csv/` → Accessible in Airflow at `/opt/airflow/csv` and NiFi at `/opt/nifi/csv`
+- `./data/sql/` → Auto-executed SQL scripts on Postgres source DB first start
+- `./data/pgadmin/servers.json` → pgAdmin server pre-configuration
 
 ## Platform-Specific Notes
 
@@ -452,11 +627,44 @@ For production or larger datasets, adjust these in [`hadoop_config/yarn-site.xml
 - `yarn.nodemanager.resource.cpu-vcores` (default: 2)
 - `yarn.scheduler.maximum-allocation-mb` (default: 4096)
 
+## Docker Compose Profiles Summary
+
+| Profile | Services Included |
+|---------|------------------|
+| (default) | HDFS, YARN, Hive, Postgres (metastore + source), pgAdmin |
+| `zeppelin` | + Apache Zeppelin |
+| `hue` | + Hue |
+| `airflow` | + Airflow + Postgres Airflow |
+| `nifi` | + Apache NiFi |
+| `all` | All services (Zeppelin, Hue, Airflow, NiFi) |
+
+**Examples:**
+```bash
+# Core + Zeppelin only
+docker compose --profile zeppelin up -d
+
+# Core + Airflow only
+docker compose --profile airflow up -d
+
+# Core + NiFi only
+docker compose --profile nifi up -d
+
+# Core + both ETL tools
+docker compose --profile airflow --profile nifi up -d
+
+# Everything
+docker compose --profile all up -d
+```
+
 ## References
 
 - [Apache Hadoop Documentation](https://hadoop.apache.org/docs/stable/)
 - [Apache Hive Documentation](https://hive.apache.org/)
+- [Apache Airflow Documentation](https://airflow.apache.org/docs/)
+- [Apache NiFi Documentation](https://nifi.apache.org/docs.html)
+- [Apache Zeppelin Documentation](https://zeppelin.apache.org/docs/latest/)
 - [Hue Documentation](https://docs.gethue.com/)
+- [pgAdmin Documentation](https://www.pgadmin.org/docs/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 
 ## License
