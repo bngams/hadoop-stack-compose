@@ -255,7 +255,7 @@ services:
   # ---------- Hue (Alternative UI - May have issues on ARM64/Apple Silicon) ----------
   hue:
     image: gethue/hue:latest
-    platform: linux/amd64
+    # platform: linux/amd64
     container_name: hue
     depends_on:
       - hiveserver2

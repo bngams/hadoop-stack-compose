@@ -4,7 +4,7 @@ M;sante;35000euro/an;80000;2
 F;sante;22000euro/an;77000;3
 F;education;30000euro/an;95000;4
 M;industrie;45000euro/an;80200;5
-M;profession juridique privé;70000euro/an;59000;6
+M;profession juridique privï¿½;70000euro/an;59000;6
 M;sante;45000euro/an;75780;7
 F;soin et education;38000euro/an;76000;8
 F;industrie;45000euro/an;91000;9
@@ -28,7 +28,7 @@ F;pharmaceutique;42000euo/an;59000;26
 F;fonction publique;35000euro/an;1400;27
 F;education;45000euro/an;59000;28
 M;transport;90000euro/an;1200;29
-M;profession juridique privé;200000euro/an;77000;30
+M;profession juridique privï¿½;200000euro/an;77000;30
 M;transports aeriens;120000euro/an;13780;31
 M;education;55000euro/an;76000;32
 M;budgetisation;40000euro/an;94390;33
