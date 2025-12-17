@@ -667,6 +667,19 @@ docker compose --profile all up -d
 - [pgAdmin Documentation](https://www.pgadmin.org/docs/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 
+## Notes about NIFI
+
+HDFS components are not avaible by default in Nifi anymore as mentionned here https://stackoverflow.com/questions/79161468/missing-puthdfs-processor-in-apache-nifi-2-0-0
+
+You can find more details on what components have been removed in NiFi 2 here: https://cwiki.apache.org/confluence/display/NIFI/Deprecated+Components+and+Features
+
+Also for reference: https://cwiki.apache.org/confluence/display/NIFI/Migration+Guidance
+
+For HDFS components specifically, there are not packaged in the convenience binary file (ie. nifi-2.0.0-bin.zip) but the components are still built and made available through Maven repositories. You can download the appropriate NARs as needed:
+
+https://mvnrepository.com/artifact/org.apache.nifi/nifi-hadoop-nar
+https://mvnrepository.com/artifact/org.apache.nifi/nifi-hadoop-libraries-nar
+
 ## License
 
 This stack configuration is provided as-is for educational and development purposes.
