@@ -129,7 +129,7 @@ Il est à noter que les nouvelles versions de Kafka abandonnent petit à petit Z
         - "2181:2181"
       networks:
         hadoop:
-          ipv4_address: 172.22.0.50
+          ipv4_address: 172.28.0.50
 
     kafka:
       image: confluentinc/cp-kafka:7.5.0
@@ -147,7 +147,7 @@ Il est à noter que les nouvelles versions de Kafka abandonnent petit à petit Z
         KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       networks:
         hadoop:
-          ipv4_address: 172.22.0.51
+          ipv4_address: 172.28.0.51
     ```
 
     Puis redémarrer les services:

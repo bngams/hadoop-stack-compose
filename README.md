@@ -476,22 +476,22 @@ Access Airflow at http://localhost:8081 to monitor and trigger DAGs.
 
 ## Networking
 
-Custom bridge network `hadoop` (172.22.0.0/16):
-- NameNode: 172.22.0.2
-- DataNode 1: 172.22.0.3
-- DataNode 2: 172.22.0.4
-- ResourceManager: 172.22.0.5
-- NodeManager: 172.22.0.6
-- PostgreSQL (Hive Metastore): 172.22.0.10
-- Metastore: 172.22.0.11
-- HiveServer2: 172.22.0.12
-- Zeppelin: 172.22.0.20 (profile: `zeppelin` or `all`)
-- Hue: 172.22.0.21 (profile: `hue` or `all`)
-- PostgreSQL Source: 172.22.0.30
-- pgAdmin: 172.22.0.31
-- PostgreSQL Airflow: 172.22.0.32 (profile: `airflow` or `all`)
-- Airflow: 172.22.0.40 (profile: `airflow` or `all`)
-- NiFi: 172.22.0.41 (profile: `nifi` or `all`)
+Custom bridge network `hadoop` (172.28.0.0/16):
+- NameNode: 172.28.0.2
+- DataNode 1: 172.28.0.3
+- DataNode 2: 172.28.0.4
+- ResourceManager: 172.28.0.5
+- NodeManager: 172.28.0.6
+- PostgreSQL (Hive Metastore): 172.28.0.10
+- Metastore: 172.28.0.11
+- HiveServer2: 172.28.0.12
+- Zeppelin: 172.28.0.20 (profile: `zeppelin` or `all`)
+- Hue: 172.28.0.21 (profile: `hue` or `all`)
+- PostgreSQL Source: 172.28.0.30
+- pgAdmin: 172.28.0.31
+- PostgreSQL Airflow: 172.28.0.32 (profile: `airflow` or `all`)
+- Airflow: 172.28.0.40 (profile: `airflow` or `all`)
+- NiFi: 172.28.0.41 (profile: `nifi` or `all`)
 
 ## Volumes
 

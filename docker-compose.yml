@@ -6,7 +6,7 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 172.22.0.0/16
+        - subnet: 172.28.0.0/16
 
 volumes:
   namenode_data:
@@ -52,7 +52,7 @@ services:
       retries: 10
     networks:
       hadoop:
-        ipv4_address: 172.22.0.2
+        ipv4_address: 172.28.0.2
 
   datanode1:
     image: apache/hadoop:3.3.5
@@ -72,7 +72,7 @@ services:
       - "9864:9864"  # DataNode Web UI
     networks:
       hadoop:
-        ipv4_address: 172.22.0.3
+        ipv4_address: 172.28.0.3
 
   datanode2:
     image: apache/hadoop:3.3.5
@@ -92,7 +92,7 @@ services:
       - "9865:9864"  # DataNode Web UI (mapped to different host port)
     networks:
       hadoop:
-        ipv4_address: 172.22.0.4
+        ipv4_address: 172.28.0.4
 
   # ---------- YARN ResourceManager ----------
   resourcemanager:
@@ -109,7 +109,7 @@ services:
       - namenode
     command: ["/bin/bash", "/start-yarn-rm.sh"]
     ports:
-      - "8088:8088"   # ResourceManager Web UI
+      - "8888:8088"   # ResourceManager Web UI
       - "8030:8030"   # Scheduler
       - "8031:8031"   # Resource Tracker
       - "8032:8032"   # ApplicationMaster
@@ -120,7 +120,7 @@ services:
       retries: 10
     networks:
       hadoop:
-        ipv4_address: 172.22.0.5
+        ipv4_address: 172.28.0.5
 
   # ---------- YARN NodeManager ----------
   nodemanager:
@@ -145,7 +145,7 @@ services:
       retries: 10
     networks:
       hadoop:
-        ipv4_address: 172.22.0.6
+        ipv4_address: 172.28.0.6
 
   # ---------- Postgres for Hive Metastore ----------
   postgres:
@@ -164,7 +164,7 @@ services:
       retries: 10
     networks:
       hadoop:
-        ipv4_address: 172.22.0.10
+        ipv4_address: 172.28.0.10
 
   # ---------- Hive Metastore ----------
   metastore:
@@ -195,7 +195,7 @@ services:
       retries: 20
     networks:
       hadoop:
-        ipv4_address: 172.22.0.11
+        ipv4_address: 172.28.0.11
 
   # ---------- HiveServer2 ----------
   hiveserver2:
@@ -224,7 +224,7 @@ services:
       retries: 30
     networks:
       hadoop:
-        ipv4_address: 172.22.0.12
+        ipv4_address: 172.28.0.12
 
   # ---------- Apache Zeppelin (Recommended for ARM64/Apple Silicon) ----------
   zeppelin:
@@ -247,27 +247,34 @@ services:
       retries: 15
     networks:
       hadoop:
-        ipv4_address: 172.22.0.20
+        ipv4_address: 172.28.0.20
     profiles:
       - zeppelin
       - all
 
   # ---------- Hue (Alternative UI - May have issues on ARM64/Apple Silicon) ----------
   hue:
-    image: gethue/hue:latest
-    # platform: linux/amd64
+    image: gethue/hue:4.11.0 # use this older version for ARM64 compatibility
+    platform: linux/amd64
     container_name: hue
     depends_on:
       - hiveserver2
       - namenode
       - resourcemanager
     ports:
-      - "8888:8888"
+      - "9999:8888"
     volumes:
       - ./hue/hue.ini:/usr/share/hue/desktop/conf/z-hue.ini:ro
     environment:
       - HUE_DATABASE_ENGINE=sqlite3
       - POLARS_SKIP_CPU_CHECK=1
+      - SETUPTOOLS_USE_DISTUTILS=stdlib
+      - DOCKER_BUILDKIT=1
+      - QEMU_CPU=max,enforce=off
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ./startup.sh
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8888 || exit 1"]
       interval: 10s
@@ -275,7 +282,7 @@ services:
       retries: 15
     networks:
       hadoop:
-        ipv4_address: 172.22.0.21
+        ipv4_address: 172.28.0.21
     profiles:
       - hue
       - all
@@ -292,7 +299,7 @@ services:
       - source_db:/var/lib/postgresql/data
       - ./data/sql:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sourceuser -d sourcedb"]
       interval: 10s
@@ -300,7 +307,7 @@ services:
       retries: 10
     networks:
       hadoop:
-        ipv4_address: 172.22.0.30
+        ipv4_address: 172.28.0.30
 
   # ---------- Postgres for Airflow Metadata ----------
   postgres-airflow:
@@ -319,7 +326,7 @@ services:
       retries: 10
     networks:
       hadoop:
-        ipv4_address: 172.22.0.32
+        ipv4_address: 172.28.0.32
     profiles:
       - airflow
       - all
@@ -342,7 +349,7 @@ services:
       - postgres-source
     networks:
       hadoop:
-        ipv4_address: 172.22.0.31
+        ipv4_address: 172.28.0.31
 
   # ---------- Apache Airflow ----------
   airflow:
@@ -388,7 +395,7 @@ services:
       - namenode
     networks:
       hadoop:
-        ipv4_address: 172.22.0.40
+        ipv4_address: 172.28.0.40
     profiles:
       - airflow
       - all
@@ -424,7 +431,72 @@ services:
       start_period: 120s
     networks:
       hadoop:
-        ipv4_address: 172.22.0.41
+        ipv4_address: 172.28.0.41
     profiles:
       - nifi
+      - all
+
+  # ---------- Apache Impala Statestore ----------
+  impala-statestore:
+    image: apache/impala:4.5.0-impala_quickstart_hms
+    container_name: impala-statestore
+    hostname: impala-statestore
+    command: ["statestored"]
+    depends_on:
+      - metastore
+    ports:
+      - "25010:25010"  # Statestore service port
+      - "25020:25020"  # Statestore Web UI
+    networks:
+      hadoop:
+        ipv4_address: 172.28.0.50
+    profiles:
+      - impala
+      - all
+
+  # ---------- Apache Impala Catalog ----------
+  impala-catalog:
+    image: apache/impala:4.5.0-impala_quickstart_hms
+    container_name: impala-catalog
+    hostname: impala-catalog
+    command: ["catalogd", "-statestore_host=impala-statestore"]
+    depends_on:
+      - impala-statestore
+      - metastore
+    environment:
+      - HIVE_METASTORE_URI=thrift://metastore:9083
+    ports:
+      - "25030:25030"  # Catalog service port
+      - "25040:25040"  # Catalog Web UI
+    networks:
+      hadoop:
+        ipv4_address: 172.28.0.51
+    profiles:
+      - impala
+      - all
+
+  # ---------- Apache Impala Daemon ----------
+  impala-daemon:
+    image: apache/impala:4.5.0-impala_quickstart_hms
+    container_name: impala-daemon
+    hostname: impala-daemon
+    command: ["impalad", "-statestore_host=impala-statestore", "-catalog_service_host=impala-catalog"]
+    depends_on:
+      - impala-statestore
+      - impala-catalog
+      - namenode
+    environment:
+      - HIVE_METASTORE_URI=thrift://metastore:9083
+    volumes:
+      - ./hadoop_config/core-site.xml:/opt/impala/conf/core-site.xml:ro
+      - ./hadoop_config/hdfs-site.xml:/opt/impala/conf/hdfs-site.xml:ro
+    ports:
+      - "21000:21000"  # Impala Shell / JDBC/ODBC port
+      - "21050:21050"  # Impala HiveServer2 port
+      - "25000:25000"  # Impala Daemon Web UI
+    networks:
+      hadoop:
+        ipv4_address: 172.28.0.52
+    profiles:
+      - impala
       - all

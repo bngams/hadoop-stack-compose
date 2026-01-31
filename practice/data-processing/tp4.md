@@ -101,7 +101,7 @@ HBase utilise Zookeeper comme service de coordination pour maintenir l'état du 
         - zookeeper
       networks:
         hadoop:
-          ipv4_address: 172.22.0.60
+          ipv4_address: 172.28.0.60
     ```
 
     Puis redémarrer les services:
