@@ -1,0 +1,34 @@
+id_empl;année-embauche;Fonction
+1;2015;aide-soignant
+2;2006;informaticien
+3;1987;infermiere
+4;1970;professeur
+5;2021;mecanicien
+6;2017;avocat
+7;2010;veterinaire
+8;1977;pericultrice
+9;2010;informaticienne
+10;1998;agriculteur
+11;2020;psycologue
+12;2018;musicienne
+13;2019;pilote
+14;2020;infermiere
+15;2021;phamacienne
+16;2022;technicien
+17;2020;comptable
+18;2021;taxi
+19;2018;ressource humaine
+20;2018;boulanger-patissier
+21;2010;conducteur de machine d'usines
+22;1990;pediatre
+23;2000;ingenieur forestier
+24;2006;comptable
+25;1984;transporteur
+26;2011;chercheur en chimie
+27;1987;secretaire
+28;1987;professeur
+29;1978;taxi
+30;1980;avocat
+31;2010;pilote d'avion
+32;1996;professeur
+33;2000;comptable

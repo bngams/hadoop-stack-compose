@@ -1,0 +1,12 @@
+Feminin;1989-03-03;Aide-soignant;20000euro/an;59000;1
+Masculin;1982-02-15;Informaticien;35000euro/an;80000;2
+Feminin;1968-04-26;Infermiere;22000euro/an;77000;3
+Feminin;1956-12-02;Professeur;30000euro/an;95000;4
+Masculin;2001-01-01;Mecanicien;45000euro/an;80200;5
+Masculin;1988-09-17;Avocat;70000euro/an;59000;6
+Masculin;1997-07-23;Veterinaire;45000euro/an;75780;7
+Feminin;1955-12-01;Pericultrice;38000euro/an;76000;8
+Feminin;1972-05-05;Informaticienne;45000euro/an;91000;9
+Masculin;1970-02-25;Agriculture;30000euro/an;14000;10
+Masculin;1984-10-28;Coach sportif;55000euro/an;78000;11
+Feminin;1996-03-20;Musicienne;41000euro/an;6000;12
