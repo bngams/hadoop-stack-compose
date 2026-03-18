@@ -318,29 +318,36 @@ Or view logs in NiFi UI: Right-click LogAttribute → **View Status History**
 
 **Note**: For production flows, remove LogAttribute or disable it to avoid log bloat. It's useful for debugging only.
 
-### Add UpdateAttribute for Date Validation
+### Add ExtractText for Extracting Employee Data
 
-We'll add attributes to help identify records with different date formats.
+We'll use regex to extract the employee ID and full record from each line.
 
-1. **Add Processor**: Search for `UpdateAttribute`
+1. **Add Processor**: Search for `ExtractText`
 2. **Configure**:
 
 **Settings Tab**:
-- Name: `Add Date Validation Attributes`
+- Name: `Extract Employee Data`
 
 **Properties Tab**:
 Click **"+"** to add custom properties:
-- **employee_id**: `${literal(1):substringBefore(';')}`
-  - Extracts the ID from the record
-- **record_content**: `${literal(1):trim()}`
-  - Stores the full record for later use
+- **employee_id**: `^([^;]+)`
+  - Regex to extract the first field (ID) before the first semicolon
+- **full_line**: `^(.+)$`
+  - Regex to capture the entire line
+
+**Additional Properties** (defaults to keep):
+- **Character Set**: `UTF-8`
+- **Maximum Buffer Size**: `1 MB`
+- **Enable Multiline Mode**: `false`
+- **Enable Unix Lines Mode**: `false`
+- **Enable Repeating Capture Group**: `false`
+- **Include Capture Group 0**: `true`
+- **Enable named group support**: `false`
 
 **Settings Tab - Auto-terminate Relationships**:
 - Check: `failure`
 
-3. **Connect**: SplitText (splits) → UpdateAttribute
-
-![UpdateAttribute Configuration](images/update-attribute-date-format.png)
+3. **Connect**: SplitText (splits) → ExtractText
 
 ### Add RouteOnContent (Optional - for Advanced Users)
 
@@ -364,14 +371,14 @@ Convert our record to JSON format for easier merging:
 2. **Configure**:
 
 **Properties Tab**:
-- **Attributes List**: `employee_id,record_content`
+- **Attributes List**: `employee_id,full_line`
 - **Destination**: `flowfile-content` (replace content with JSON)
 - **Include Core Attributes**: `false`
 
 **Settings Tab - Auto-terminate Relationships**:
 - Check: `failure`
 
-3. **Connect**: UpdateAttribute (success) → AttributesToJSON
+3. **Connect**: ExtractText (matched) → AttributesToJSON
 
 ## Step 6 - Ingest Function Data (fonction_employes.txt)
 
@@ -523,8 +530,6 @@ For a simple concatenation of all records:
 **Auto-terminate**: `failure`, `original`
 
 3. **Connect all three JSON outputs** to this MergeContent processor
-
-![MergeContent Configuration](images/merge-content-config.png)
 
 ### Option B: Advanced Approach - Proper Join (Bonus)
 
