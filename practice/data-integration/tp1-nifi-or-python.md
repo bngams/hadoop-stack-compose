@@ -343,8 +343,9 @@ def load_to_hdfs(data, hdfs_path: str):
     # subprocess.run(['docker', 'cp', str(temp_file), 'namenode:/tmp/'])
 
     # TODO: Put file into HDFS
-    # Hint: Use docker exec to run hdfs dfs -put command
+    # Hint: Use docker exec to run hdfs dfs -put command or any compatible lib like (hdfs3, pyspark)
     # subprocess.run(['docker', 'exec', 'namenode', 'hdfs', 'dfs', '-put', ...])
+    # or pip install pyspark ...
 
     # Clean up temp file
     temp_file.unlink()

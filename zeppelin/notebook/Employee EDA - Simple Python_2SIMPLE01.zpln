@@ -1,0 +1,93 @@
+{
+  "paragraphs": [
+    {
+      "text": "%md\n\n# Employee EDA - Simple Python Version\n\nThis notebook demonstrates EDA using Python/Pandas (without PySpark).\n\n## Setup Required\n\nFirst, copy your data from HDFS to a local directory:\n\n```bash\ndocker exec namenode hdfs dfs -get /user/python-etl/employees/integrated_employees.csv /tmp/\ndocker cp namenode:/tmp/integrated_employees.csv ./data/output/\n```\n\nThen run this notebook!\n\n---",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "config": {
+        "editorSetting": {
+          "language": "markdown",
+          "editOnDblClick": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/markdown",
+        "editorHide": true,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_1",
+      "id": "paragraph_1",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 1: Install Required Libraries",
+      "text": "%python\n\nimport subprocess\nimport sys\n\n# Install required packages\nprint(\"📦 Installing pandas, matplotlib, seaborn...\")\nsubprocess.check_call([sys.executable, \"-m\", \"pip\", \"install\", \"-q\", \"pandas\", \"matplotlib\", \"seaborn\"])\nprint(\"✅ Packages installed successfully!\")",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python\"",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_2",
+      "id": "paragraph_2",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 2: Load Data",
+      "text": "%python\n\nimport pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n# Set plotting style\nsns.set_theme(style=\"whitegrid\")\n\nprint(\"📂 Loading employee data...\")\n\n# Try to load from mounted data directory\ntry:\n    df = pd.read_csv(\"/zeppelin/data/output/integrated_employees.csv\")\n    print(f\"✅ Data loaded: {len(df)} records\")\n    print(f\"Columns: {list(df.columns)}\")\n    print(\"\\nFirst 5 rows:\")\n    print(df.head())\nexcept FileNotFoundError:\n    print(\"❌ File not found!\")\n    print(\"\\nPlease run these commands first:\")\n    print(\"docker exec namenode hdfs dfs -get /user/python-etl/employees/integrated_employees.csv /tmp/\")\n    print(\"docker cp namenode:/tmp/integrated_employees.csv ./data/output/\")",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "jobName": "paragraph_3",
+      "id": "paragraph_3",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    }
+  ],
+  "name": "Employee EDA - Simple Python",
+  "id": "2SIMPLE01",
+  "defaultInterpreterGroup": "python",
+  "version": "0.12.0",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {}
+}

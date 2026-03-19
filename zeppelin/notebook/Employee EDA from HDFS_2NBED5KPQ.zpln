@@ -1,0 +1,452 @@
+{
+  "paragraphs": [
+    {
+      "text": "%md\n\n# Employee EDA from HDFS\n\nThis notebook demonstrates Exploratory Data Analysis on employee data stored in HDFS.\n\n## Objectives\n- Load CSV data from HDFS using PySpark\n- Perform data quality checks\n- Compute statistics and distributions\n- Visualize insights\n- Answer: \"Do salaries vary by sector?\"\n\n---",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "tableHide": false,
+        "editorSetting": {
+          "language": "markdown",
+          "editOnDblClick": true
+        },
+        "colWidth": 12,
+        "editorMode": "ace/mode/markdown",
+        "fontSize": 9,
+        "editorHide": true,
+        "title": true,
+        "results": {},
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": []
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1710806400000_1",
+      "id": "paragraph_1",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY",
+      "focus": true,
+      "$$hashKey": "object:1"
+    },
+    {
+      "title": "Step 1: Initialize Spark",
+      "text": "%pyspark\n\n# Import libraries\nfrom pyspark.sql import SparkSession\nfrom pyspark.sql.functions import col, count, avg, min, max, desc, regexp_extract, sum as spark_sum\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n# Initialize Spark session\nspark = SparkSession.builder \\\n    .appName(\"Employee EDA\") \\\n    .getOrCreate()\n\nspark.sparkContext.setLogLevel(\"WARN\")\n\nprint(\"✅ Spark session initialized\")\nprint(f\"Spark version: {spark.version}\")",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_2",
+      "id": "paragraph_2",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 2: Load Data from HDFS",
+      "text": "%pyspark\n\n# Load data from HDFS\nhdfs_path = \"hdfs://namenode:8020/user/python-etl/employees/integrated_employees.csv\"\n\nprint(f\"📂 Loading data from: {hdfs_path}\")\n\ndf = spark.read.csv(\n    hdfs_path,\n    header=True,\n    inferSchema=True,\n    sep=','\n)\n\nprint(f\"✅ Data loaded: {df.count()} records\")\nprint(f\"Columns: {df.columns}\\n\")\n\n# Show first few rows\ndf.show(5, truncate=False)",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_3",
+      "id": "paragraph_3",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 3: Data Schema & Quality Check",
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"DATA SCHEMA\")\nprint(\"=\" * 60)\ndf.printSchema()\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"DATA SUMMARY\")\nprint(\"=\" * 60)\nprint(f\"Total records: {df.count()}\")\nprint(f\"Total columns: {len(df.columns)}\")\n\n# Check for null values\nprint(\"\\n\" + \"=\" * 60)\nprint(\"MISSING VALUES\")\nprint(\"=\" * 60)\n\nnull_counts = df.select([\n    spark_sum(col(c).isNull().cast(\"int\")).alias(c)\n    for c in df.columns\n])\n\nnull_counts.show()",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_4",
+      "id": "paragraph_4",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 4: Clean Salary Column",
+      "text": "%pyspark\n\n# Clean salary column - extract numeric value from \"20000euro/an\"\ndf_cleaned = df.withColumn(\n    \"Salaire_numeric\",\n    regexp_extract(col(\"Salaire\"), r'(\\\\d+)', 1).cast(\"int\")\n)\n\nprint(\"✅ Salary column cleaned\")\nprint(\"\\nBefore and After:\")\ndf_cleaned.select(\"nom\", \"Salaire\", \"Salaire_numeric\").show(5)",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_5",
+      "id": "paragraph_5",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 5: Salary Statistics",
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"💰 SALARY STATISTICS\")\nprint(\"=\" * 60)\n\nsalary_stats = df_cleaned.select(\n    avg(\"Salaire_numeric\").alias(\"avg_salary\"),\n    min(\"Salaire_numeric\").alias(\"min_salary\"),\n    max(\"Salaire_numeric\").alias(\"max_salary\")\n).collect()[0]\n\nprint(f\"Average salary: {salary_stats.avg_salary:,.0f} €\")\nprint(f\"Min salary: {salary_stats.min_salary:,.0f} €\")\nprint(f\"Max salary: {salary_stats.max_salary:,.0f} €\")\n\nprint(\"\\nDetailed Statistics:\")\ndf_cleaned.select(\"Salaire_numeric\").summary().show()",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_6",
+      "id": "paragraph_6",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 6: Distribution Analysis",
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"DISTRIBUTION ANALYSIS\")\nprint(\"=\" * 60)\n\nprint(\"\\n👥 GENDER DISTRIBUTION:\")\ndf_cleaned.groupBy(\"Sexe\").count().orderBy(desc(\"count\")).show()\n\nprint(\"\\n🏢 TOP 5 SECTORS:\")\ndf_cleaned.groupBy(\"Secteur\").count().orderBy(desc(\"count\")).limit(5).show(truncate=False)\n\nprint(\"\\n💼 TOP 5 JOB FUNCTIONS:\")\ndf_cleaned.groupBy(\"Fonction\").count().orderBy(desc(\"count\")).limit(5).show(truncate=False)",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_7",
+      "id": "paragraph_7",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 7: Register SQL Table",
+      "text": "%pyspark\n\n# Register DataFrame as SQL table for querying\ndf_cleaned.createOrReplaceTempView(\"employee_data\")\n\nprint(\"✅ DataFrame registered as SQL table 'employee_data'\")\nprint(\"\\nYou can now use %sql to query this data!\")",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_8",
+      "id": "paragraph_8",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 8: SQL Query with Visualization",
+      "text": "%sql\n\n-- Average salary by sector (for sectors with 2+ employees)\n-- Click the chart icon above to visualize!\n\nSELECT \n    Secteur,\n    ROUND(AVG(Salaire_numeric), 0) as avg_salary,\n    COUNT(*) as employee_count\nFROM employee_data\nGROUP BY Secteur\nHAVING COUNT(*) >= 2\nORDER BY avg_salary DESC",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 300,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "Secteur": "string",
+                      "avg_salary": "number",
+                      "employee_count": "number"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "Secteur",
+                  "index": 0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [],
+              "values": [
+                {
+                  "name": "avg_salary",
+                  "index": 1,
+                  "aggr": "sum"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/sql",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_9",
+      "id": "paragraph_9",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 9: Matplotlib Visualization",
+      "text": "%pyspark\n\nimport matplotlib.pyplot as plt\n\n# Salary distribution histogram\nsalary_data = df_cleaned.select(\"Salaire_numeric\").toPandas()\n\nplt.figure(figsize=(10, 6))\nplt.hist(salary_data['Salaire_numeric'], bins=15, color='skyblue', edgecolor='black')\nplt.xlabel('Salary (€/year)', fontsize=12)\nplt.ylabel('Number of Employees', fontsize=12)\nplt.title('Salary Distribution (from HDFS)', fontsize=14, fontweight='bold')\nplt.axvline(salary_data['Salaire_numeric'].mean(), color='red', linestyle='--', \n            label=f'Mean: {salary_data[\"Salaire_numeric\"].mean():,.0f}€')\nplt.legend()\nplt.grid(axis='y', alpha=0.3)\n\nz.show(plt)",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_10",
+      "id": "paragraph_10",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 10: Answer Key Question - Salary by Sector",
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"KEY QUESTION: Do salaries vary by sector?\")\nprint(\"=\" * 60)\n\n# Calculate salary statistics by sector\nsalary_analysis = df_cleaned.groupBy(\"Secteur\") \\\n    .agg(\n        avg(\"Salaire_numeric\").alias(\"avg_salary\"),\n        min(\"Salaire_numeric\").alias(\"min_salary\"),\n        max(\"Salaire_numeric\").alias(\"max_salary\"),\n        count(\"*\").alias(\"employee_count\")\n    ) \\\n    .orderBy(desc(\"avg_salary\"))\n\nprint(\"\\nAverage Salary by Sector:\")\nsalary_analysis.show(10, truncate=False)\n\n# Key insight\nhighest = salary_analysis.first()\nprint(f\"\\n📊 KEY INSIGHT:\")\nprint(f\"Highest paying sector: {highest['Secteur']} ({highest['avg_salary']:,.0f} €)\")\nprint(f\"Employee count: {highest['employee_count']}\")\nprint(f\"Salary range: {highest['min_salary']:,.0f} - {highest['max_salary']:,.0f} €\")",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_11",
+      "id": "paragraph_11",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Step 11: Export Results to HDFS",
+      "text": "%pyspark\n\n# Save analysis results back to HDFS\noutput_path = \"hdfs://namenode:8020/user/python-etl/analysis_results/salary_by_sector\"\n\nprint(f\"💾 Saving analysis results to HDFS...\")\nprint(f\"Path: {output_path}\")\n\nsalary_analysis.write \\\n    .mode(\"overwrite\") \\\n    .option(\"header\", \"true\") \\\n    .csv(output_path)\n\nprint(f\"\\n✅ Analysis results saved successfully!\")\nprint(f\"\\nTo view the results, run:\")\nprint(f\"docker exec -it namenode hdfs dfs -ls {output_path.replace('hdfs://namenode:8020', '')}\")",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_12",
+      "id": "paragraph_12",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    },
+    {
+      "title": "Summary Report",
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"EDA SUMMARY REPORT (FROM HDFS)\")\nprint(\"=\" * 60)\n\n# Collect summary statistics\ntotal_employees = df_cleaned.count()\navg_salary = df_cleaned.select(avg(\"Salaire_numeric\")).collect()[0][0]\nmedian_salary_approx = df_cleaned.approxQuantile(\"Salaire_numeric\", [0.5], 0.01)[0]\ngender_dist = df_cleaned.groupBy(\"Sexe\").count().collect()\ntotal_sectors = df_cleaned.select(\"Secteur\").distinct().count()\nlargest_sector = df_cleaned.groupBy(\"Secteur\").count().orderBy(desc(\"count\")).first()\n\nprint(f\"\"\"\n📋 DATASET SUMMARY:\n   • Data source: HDFS (/user/python-etl/employees/)\n   • Total employees: {total_employees}\n   • Processing engine: PySpark {spark.version}\n\n💰 SALARY INSIGHTS:\n   • Average salary: {avg_salary:,.0f} €/year\n   • Median salary (approx): {median_salary_approx:,.0f} €/year\n\n👥 DEMOGRAPHICS:\n   • Female: {[g['count'] for g in gender_dist if g['Sexe'] == 'F'][0] if any(g['Sexe'] == 'F' for g in gender_dist) else 0}\n   • Male: {[g['count'] for g in gender_dist if g['Sexe'] == 'M'][0] if any(g['Sexe'] == 'M' for g in gender_dist) else 0}\n\n🏢 SECTORS:\n   • Total unique sectors: {total_sectors}\n   • Largest sector: {largest_sector['Secteur']} ({largest_sector['count']} employees)\n\n✅ ANALYSIS COMPLETE\n   • Results exported to HDFS\n   • Ready for downstream processing (Hive, Spark jobs, etc.)\n\"\"\")\n\nprint(\"=\" * 60)",
+      "user": "anonymous",
+      "dateUpdated": "2026-03-19T00:00:00+0000",
+      "progress": 0,
+      "config": {
+        "colWidth": 12,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "python",
+          "editOnDblClick": false
+        },
+        "editorMode": "ace/mode/python",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_13",
+      "id": "paragraph_13",
+      "dateCreated": "2026-03-19T00:00:00+0000",
+      "status": "READY"
+    }
+  ],
+  "name": "Employee EDA from HDFS",
+  "id": "2NBED5KPQ",
+  "defaultInterpreterGroup": "spark",
+  "version": "0.12.0",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {}
+}

@@ -1,0 +1,48 @@
+{
+  "paragraphs": [
+    {
+      "text": "%pyspark\n\n# Import libraries\nfrom pyspark.sql import SparkSession\nfrom pyspark.sql.functions import col, count, avg, min, max, desc, regexp_extract\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\n# Initialize Spark session\nspark = SparkSession.builder \\\n    .appName(\"Employee EDA\") \\\n    .getOrCreate()\n\nspark.sparkContext.setLogLevel(\"WARN\")\n\nprint(\"✅ Spark session initialized\")\nprint(f\"Spark version: {spark.version}\")",
+      "title": "Step 1: Initialize Spark"
+    },
+    {
+      "text": "%pyspark\n\n# Load data from HDFS\nhdfs_path = \"hdfs://namenode:8020/user/python-etl/employees/integrated_employees.csv\"\n\ndf = spark.read.csv(\n    hdfs_path,\n    header=True,\n    inferSchema=True,\n    sep=','\n)\n\nprint(f\"✅ Data loaded from HDFS: {df.count()} records\")\nprint(f\"Columns: {df.columns}\")\n\ndf.show(5, truncate=False)",
+      "title": "Step 2: Load Data from HDFS"
+    },
+    {
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"DATA SCHEMA\")\nprint(\"=\" * 60)\ndf.printSchema()\n\nprint(\"\\n\" + \"=\" * 60)\nprint(\"DATA SUMMARY\")\nprint(\"=\" * 60)\nprint(f\"Total records: {df.count()}\")\nprint(f\"Total columns: {len(df.columns)}\")",
+      "title": "Step 3: Inspect Data"
+    },
+    {
+      "text": "%pyspark\n\n# Clean salary column\ndf_cleaned = df.withColumn(\n    \"Salaire_numeric\",\n    regexp_extract(col(\"Salaire\"), r'(\\d+)', 1).cast(\"int\")\n)\n\ndf_cleaned.select(\"nom\", \"Salaire\", \"Salaire_numeric\").show(5)\n\nprint(\"✅ Salary column cleaned\")",
+      "title": "Step 4: Clean Data"
+    },
+    {
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"💰 SALARY STATISTICS\")\nprint(\"=\" * 60)\n\nsalary_stats = df_cleaned.select(\n    avg(\"Salaire_numeric\").alias(\"avg_salary\"),\n    min(\"Salaire_numeric\").alias(\"min_salary\"),\n    max(\"Salaire_numeric\").alias(\"max_salary\")\n).collect()[0]\n\nprint(f\"Average salary: {salary_stats.avg_salary:,.0f} €\")\nprint(f\"Min salary: {salary_stats.min_salary:,.0f} €\")\nprint(f\"Max salary: {salary_stats.max_salary:,.0f} €\")\n\ndf_cleaned.select(\"Salaire_numeric\").summary().show()",
+      "title": "Step 5: Basic Statistics"
+    },
+    {
+      "text": "%pyspark\n\nprint(\"👥 GENDER DISTRIBUTION\")\ndf_cleaned.groupBy(\"Sexe\").count().orderBy(desc(\"count\")).show()\n\nprint(\"\\n🏢 TOP 5 SECTORS\")\ndf_cleaned.groupBy(\"Secteur\").count().orderBy(desc(\"count\")).limit(5).show(truncate=False)\n\nprint(\"\\n💼 TOP 5 JOB FUNCTIONS\")\ndf_cleaned.groupBy(\"Fonction\").count().orderBy(desc(\"count\")).limit(5).show(truncate=False)",
+      "title": "Step 6: Group Analysis"
+    },
+    {
+      "text": "%pyspark\n\n# Register for SQL queries\ndf_cleaned.createOrReplaceTempView(\"employee_data\")\n\nprint(\"✅ DataFrame registered as SQL table 'employee_data'\")",
+      "title": "Step 7: Register SQL Table"
+    },
+    {
+      "text": "%sql\n\nSELECT \n    Secteur,\n    AVG(Salaire_numeric) as avg_salary,\n    COUNT(*) as employee_count\nFROM employee_data\nGROUP BY Secteur\nHAVING COUNT(*) >= 2\nORDER BY avg_salary DESC",
+      "title": "Step 8: SQL Analysis (Use Chart Icon)"
+    },
+    {
+      "text": "%pyspark\n\nimport matplotlib.pyplot as plt\n\n# Salary histogram\nsalary_data = df_cleaned.select(\"Salaire_numeric\").toPandas()\n\nplt.figure(figsize=(10, 6))\nplt.hist(salary_data['Salaire_numeric'], bins=15, color='skyblue', edgecolor='black')\nplt.xlabel('Salary (€/year)', fontsize=12)\nplt.ylabel('Number of Employees', fontsize=12)\nplt.title('Salary Distribution (from HDFS)', fontsize=14, fontweight='bold')\nplt.axvline(salary_data['Salaire_numeric'].mean(), color='red', linestyle='--', \n            label=f'Mean: {salary_data[\"Salaire_numeric\"].mean():,.0f}€')\nplt.legend()\nplt.grid(axis='y', alpha=0.3)\n\nz.show(plt)",
+      "title": "Step 9: Matplotlib Visualization"
+    },
+    {
+      "text": "%pyspark\n\nprint(\"=\" * 60)\nprint(\"KEY QUESTION: Do salaries vary by sector?\")\nprint(\"=\" * 60)\n\nsalary_analysis = df_cleaned.groupBy(\"Secteur\") \\\n    .agg(\n        avg(\"Salaire_numeric\").alias(\"avg_salary\"),\n        min(\"Salaire_numeric\").alias(\"min_salary\"),\n        max(\"Salaire_numeric\").alias(\"max_salary\"),\n        count(\"*\").alias(\"employee_count\")\n    ) \\\n    .orderBy(desc(\"avg_salary\"))\n\nprint(\"\\nAverage Salary by Sector:\")\nsalary_analysis.show(10, truncate=False)\n\nhighest = salary_analysis.first()\nprint(f\"\\n📊 KEY INSIGHT:\")\nprint(f\"Highest paying sector: {highest['Secteur']} ({highest['avg_salary']:,.0f} €)\")",
+      "title": "Step 10: Answer Key Question"
+    },
+    {
+      "text": "%pyspark\n\n# Save results to HDFS\noutput_path = \"hdfs://namenode:8020/user/python-etl/analysis_results/salary_by_sector\"\n\nsalary_analysis.write \\\n    .mode(\"overwrite\") \\\n    .option(\"header\", \"true\") \\\n    .csv(output_path)\n\nprint(f\"✅ Analysis results saved to HDFS: {output_path}\")",
+      "title": "Step 11: Export Results"
+    }
+  ]
+}

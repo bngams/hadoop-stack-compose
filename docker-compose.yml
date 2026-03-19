@@ -237,6 +237,8 @@ services:
       - resourcemanager
     ports:
       - "8080:8080"
+    volumes:
+      - ./zeppelin/notebook:/zeppelin/notebook
     environment:
       ZEPPELIN_ADDR: 0.0.0.0
       ZEPPELIN_PORT: 8080
