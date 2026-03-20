@@ -543,45 +543,37 @@ This is more complex and recommended only after mastering the basics.
 
 ## Step 9 - Store Data in HDFS
 
-### Configure HDFS Connection
+### Prerequisites: HDFS NAR Installation
 
-First, create a Hadoop Configuration Resources file that NiFi can use.
+⚠️ **Important**: NiFi 2.0 removed HDFS processors from the default distribution. The HDFS NARs are already installed in this stack via mounted volumes.
 
-#### Option 1: Mount Configuration Files (Recommended)
+If you're setting this up from scratch:
+1. Download the HDFS NARs:
+   ```bash
+   mkdir -p nifi/extensions
+   cd nifi/extensions
+   curl -O https://repo1.maven.org/maven2/org/apache/nifi/nifi-hadoop-nar/2.0.0/nifi-hadoop-nar-2.0.0.nar
+   curl -O https://repo1.maven.org/maven2/org/apache/nifi/nifi-hadoop-libraries-nar/2.0.0/nifi-hadoop-libraries-nar-2.0.0.nar
+   ```
 
-The easiest way is to use the existing Hadoop config:
+2. Mount them in docker-compose.yml:
+   ```yaml
+   nifi:
+     volumes:
+       - ./nifi/extensions:/opt/nifi/nifi-current/nar_extensions:ro
+       - ./hadoop_config:/opt/nifi/hadoop_config:ro
+   ```
 
+3. Restart NiFi to load the NARs
+
+### Verify HDFS Processors Available
+
+Check that PutHDFS is available:
 ```bash
-# The hadoop_config folder is already available in your project
-# We'll reference it from NiFi
+docker logs nifi | grep -i "PutHDFS"
 ```
 
-You'll need to update the docker-compose.yml to mount the config into NiFi:
-
-```yaml
-nifi:
-  volumes:
-    - ./hadoop_config:/opt/nifi/hadoop_config:ro
-```
-
-Then restart NiFi:
-```bash
-docker-compose --profile nifi down
-docker-compose --profile nifi up -d
-```
-
-#### Option 2: Manual Configuration
-
-1. Create a file `hadoop_config/core-site.xml` if not exists
-2. Ensure it contains the NameNode address:
-```xml
-<configuration>
-  <property>
-    <name>fs.defaultFS</name>
-    <value>hdfs://namenode:8020</value>
-  </property>
-</configuration>
-```
+You should see: `org.apache.nifi.processors.hadoop.PutHDFS`
 
 ### Add PutHDFS Processor
 
@@ -594,38 +586,46 @@ Now add the processor to write data to HDFS:
 - Name: `Store in HDFS`
 
 **Properties Tab**:
-- **Hadoop Configuration Resources**: `/opt/nifi/hadoop_config/core-site.xml`
-  - If you didn't mount the config, leave this blank and set the next property
-- **Additional Classpath Resources**: (leave empty)
+- **Hadoop Configuration Resources**: `/opt/nifi/hadoop_config/core-site.xml,/opt/nifi/hadoop_config/hdfs-site.xml`
 - **Directory**: `/user/nifi/employees`
 - **Conflict Resolution Strategy**: `replace` (overwrite existing files)
 - **Compression codec**: `NONE` (or choose `GZIP` for compression)
 
-**Auto-terminate**: `failure`, `success`
-
-⚠️ **Important**: PutHDFS requires access to Hadoop libraries. If you encounter errors, you may need to:
-- Use **PutFile** processor to write locally first, then manually copy to HDFS
-- Or configure the Hadoop client libraries in NiFi
-
-![PutHDFS Configuration](images/puthdfs-config.png)
+**Settings Tab - Auto-terminate Relationships**:
+- Check: `failure`, `success`
 
 3. **Connect**: MergeContent (merged) → PutHDFS
 
-### Alternative: PutFile + Manual HDFS Copy
+### Troubleshooting PutHDFS
 
-If PutHDFS doesn't work (common issue with containerized environments):
+**Issue**: "No FileSystem for scheme: hdfs"
+- **Solution**: Ensure both NAR files are loaded (check logs: `docker logs nifi | grep hadoop`)
 
-1. Use **PutFile** processor instead:
+**Issue**: "Connection refused to namenode:8020"
+- **Solution**:
+  - Verify namenode is running: `docker-compose ps namenode`
+  - Check network connectivity: `docker exec -it nifi ping namenode`
+  - Ensure `core-site.xml` has correct namenode address
+
+**Issue**: "Permission denied" when writing to HDFS
+- **Solution**: Set proper permissions on HDFS directory:
+  ```bash
+  docker exec -it namenode hdfs dfs -chmod 777 /user/nifi/employees
+  ```
+
+### Alternative: PutFile (if needed)
+
+If you prefer to write locally first and manually copy to HDFS:
+
+1. Use **PutFile** processor:
    - **Directory**: `/opt/nifi/output`
-   - Create the output directory: `mkdir -p data/output` on host
-   - Mount it in docker-compose: `- ./data/output:/opt/nifi/output`
+   - The directory is already mounted in docker-compose.yml
 
 2. Manually copy to HDFS:
    ```bash
-   # Copy file from NiFi output to HDFS
    docker cp nifi:/opt/nifi/output/merged_employees.txt ./merged_employees.txt
    docker cp ./merged_employees.txt namenode:/tmp/
-   docker exec -it namenode hdfs dfs -put /tmp/merged_employees.txt /user/nifi/employees/
+   docker exec -it namenode hdfs dfs -put -f /tmp/merged_employees.txt /user/nifi/employees/
    ```
 
 ## Step 10 - Run and Test the Flow

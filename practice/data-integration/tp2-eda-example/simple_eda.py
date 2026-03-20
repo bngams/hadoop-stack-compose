@@ -43,6 +43,10 @@ salaries = pd.read_csv(
     encoding='latin-1'
 )
 
+print("📂 Data loaded:")
+print(salaries.head(3))
+print(salaries["Salaire"])
+
 print("✅ Data loaded successfully!\n")
 
 # Display basic information
