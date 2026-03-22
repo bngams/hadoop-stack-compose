@@ -319,8 +319,17 @@ print(f"Total merged records: {len(pdf_merged)}")
 print(f"Common facilities: {pdf_merged['finess'].nunique()}")
 
 print("\n=== Sample of merged data ===")
-print(pdf_merged[['finess', 'rs_esatis', 'region_esatis', 'score_all_rea_ajust',
+# Note: Use 'rs_finess' not 'rs_esatis' - that's the actual column name
+print(pdf_merged[['finess', 'rs_finess', 'region_esatis', 'score_all_rea_ajust',
                    'ete_ortho_obs_etbt', 'ete_ortho_pos_seuil_etbt']].head(10))
+
+# Optional: Correlation analysis
+pdf_merged['score_numeric'] = pd.to_numeric(pdf_merged['score_all_rea_ajust'], errors='coerce')
+pdf_merged['ete_numeric'] = pd.to_numeric(pdf_merged['ete_ortho_obs_etbt'], errors='coerce')
+
+print("\n=== Correlation between satisfaction and clinical quality ===")
+correlation = pdf_merged[['score_numeric', 'ete_numeric']].corr()
+print(correlation)
 ```
 
 ---
@@ -470,12 +479,21 @@ spark.sql("SHOW DATABASES").show()
 
 ### Step 12.2: Create Dimension Tables
 
+**⚠️ Common Issue - Empty Tables After `saveAsTable()`**
+
+If you see tables created but `COUNT(*)` returns 0, use this reliable pattern:
+1. Explicitly create database
+2. Write with explicit HDFS path using `.option("path", ...)`
+3. Force metastore refresh with `REFRESH TABLE`
+4. Verify count after creation
+
+This ensures Hive metastore properly registers the data location.
+
 #### Dimension: Location
 
 ```python
 %pyspark
-# Create location dimension from both datasets
-from pyspark.sql.functions import monotonically_increasing_id, trim, upper
+from pyspark.sql.functions import monotonically_increasing_id, trim
 
 # Extract unique regions from both datasets
 regions_esatis = df_esatis.select("region").distinct()
@@ -489,19 +507,35 @@ dim_location = regions_esatis.union(regions_ete).distinct() \
 # Clean region names
 dim_location = dim_location.withColumn("region_name_clean", trim(dim_location.region_name))
 
-print(f"Total unique locations: {dim_location.count()}")
+# Verify BEFORE writing
+count = dim_location.count()
+print(f"Count before write: {count}")
 dim_location.show()
 
-# Save as Hive table
-dim_location.write.mode("overwrite").saveAsTable("healthcare_analytics.dim_location")
-print("✓ Created: dim_location")
+# 1. Ensure database exists
+spark.sql("CREATE DATABASE IF NOT EXISTS healthcare_analytics")
+
+# 2. Write with explicit path
+dim_location.write \
+    .mode("overwrite") \
+    .format("parquet") \
+    .option("path", "/user/hive/warehouse/healthcare_analytics.db/dim_location") \
+    .saveAsTable("healthcare_analytics.dim_location")
+
+# 3. Force metastore refresh
+spark.sql("REFRESH TABLE healthcare_analytics.dim_location")
+spark.catalog.refreshTable("healthcare_analytics.dim_location")
+
+# 4. Verify
+final_count = spark.table("healthcare_analytics.dim_location").count()
+print(f"✓ Created: dim_location ({final_count} rows)")
 ```
 
 #### Dimension: Establishment
 
 ```python
 %pyspark
-from pyspark.sql.functions import coalesce, lit
+from pyspark.sql.functions import coalesce, lit, monotonically_increasing_id
 
 # Create establishment dimension from ESATIS (more complete)
 dim_establishment = df_esatis.select(
@@ -527,12 +561,21 @@ dim_establishment = dim_establishment.select(
     "participation"
 )
 
-print(f"Total establishments: {dim_establishment.count()}")
+print(f"Total establishments before write: {dim_establishment.count()}")
 dim_establishment.show(5)
 
-# Save as Hive table
-dim_establishment.write.mode("overwrite").saveAsTable("healthcare_analytics.dim_establishment")
-print("✓ Created: dim_establishment")
+# Write with explicit path and refresh
+dim_establishment.write \
+    .mode("overwrite") \
+    .format("parquet") \
+    .option("path", "/user/hive/warehouse/healthcare_analytics.db/dim_establishment") \
+    .saveAsTable("healthcare_analytics.dim_establishment")
+
+spark.sql("REFRESH TABLE healthcare_analytics.dim_establishment")
+spark.catalog.refreshTable("healthcare_analytics.dim_establishment")
+
+final_count = spark.table("healthcare_analytics.dim_establishment").count()
+print(f"✓ Created: dim_establishment ({final_count} rows)")
 ```
 
 #### Dimension: Quality Classification
@@ -555,9 +598,18 @@ dim_quality = spark.createDataFrame(quality_data,
 
 dim_quality.show()
 
-# Save as Hive table
-dim_quality.write.mode("overwrite").saveAsTable("healthcare_analytics.dim_quality_classification")
-print("✓ Created: dim_quality_classification")
+# Write with explicit path and refresh
+dim_quality.write \
+    .mode("overwrite") \
+    .format("parquet") \
+    .option("path", "/user/hive/warehouse/healthcare_analytics.db/dim_quality_classification") \
+    .saveAsTable("healthcare_analytics.dim_quality_classification")
+
+spark.sql("REFRESH TABLE healthcare_analytics.dim_quality_classification")
+spark.catalog.refreshTable("healthcare_analytics.dim_quality_classification")
+
+final_count = spark.table("healthcare_analytics.dim_quality_classification").count()
+print(f"✓ Created: dim_quality_classification ({final_count} rows)")
 ```
 
 #### Dimension: Date
@@ -581,9 +633,18 @@ dim_date = spark.createDataFrame(date_data,
 
 dim_date.show()
 
-# Save as Hive table
-dim_date.write.mode("overwrite").saveAsTable("healthcare_analytics.dim_date")
-print("✓ Created: dim_date")
+# Write with explicit path and refresh
+dim_date.write \
+    .mode("overwrite") \
+    .format("parquet") \
+    .option("path", "/user/hive/warehouse/healthcare_analytics.db/dim_date") \
+    .saveAsTable("healthcare_analytics.dim_date")
+
+spark.sql("REFRESH TABLE healthcare_analytics.dim_date")
+spark.catalog.refreshTable("healthcare_analytics.dim_date")
+
+final_count = spark.table("healthcare_analytics.dim_date").count()
+print(f"✓ Created: dim_date ({final_count} rows)")
 ```
 
 ### Step 12.3: Create Fact Table
@@ -657,15 +718,24 @@ fact_hospital_quality = df_esatis_typed.join(
     col("Depot").alias("data_submitted")
 )
 
-print(f"Fact table records: {fact_hospital_quality.count()}")
+print(f"Fact table records before write: {fact_hospital_quality.count()}")
 fact_hospital_quality.show(5)
 
-# Save as Hive table (partitioned by region for performance)
-fact_hospital_quality.write.mode("overwrite") \
+# Write with explicit path, partitioning, and refresh
+fact_hospital_quality.write \
+    .mode("overwrite") \
+    .format("parquet") \
     .partitionBy("location_region") \
+    .option("path", "/user/hive/warehouse/healthcare_analytics.db/fact_hospital_quality") \
     .saveAsTable("healthcare_analytics.fact_hospital_quality")
 
-print("✓ Created: fact_hospital_quality (partitioned by region)")
+# Force metastore refresh
+spark.sql("REFRESH TABLE healthcare_analytics.fact_hospital_quality")
+spark.catalog.refreshTable("healthcare_analytics.fact_hospital_quality")
+
+# Verify
+final_count = spark.table("healthcare_analytics.fact_hospital_quality").count()
+print(f"✓ Created: fact_hospital_quality ({final_count} rows, partitioned by region)")
 ```
 
 ### Step 12.4: Verify Hive Tables
@@ -776,6 +846,86 @@ docker exec -it hive-hs2 beeline -u jdbc:hive2://localhost:10000
 USE healthcare_analytics;
 SHOW TABLES;
 SELECT COUNT(*) FROM fact_hospital_quality;
+```
+
+---
+
+## Troubleshooting Hive Tables
+
+### Issue: Tables Created but COUNT(*) Returns 0
+
+**Symptoms:**
+- `SHOW TABLES` displays the table
+- `SELECT COUNT(*) FROM table` returns 0
+- But you know data was written
+
+**Root Cause:** Hive metastore not properly registered with data location
+
+**Solution:** Use the reliable pattern shown above:
+```python
+%pyspark
+# Always use this pattern for saveAsTable
+your_df.write \
+    .mode("overwrite") \
+    .format("parquet") \
+    .option("path", "/user/hive/warehouse/database.db/table_name") \
+    .saveAsTable("database.table_name")
+
+# Then force refresh
+spark.sql("REFRESH TABLE database.table_name")
+spark.catalog.refreshTable("database.table_name")
+
+# Verify
+print(spark.table("database.table_name").count())
+```
+
+### Issue: SQL Queries Return Empty Results
+
+**Symptoms:**
+- Table has data (PySpark count works)
+- SQL `SELECT * FROM table` returns no rows
+
+**Solution:**
+```sql
+%sql
+-- Repair table partitions
+MSCK REPAIR TABLE healthcare_analytics.fact_hospital_quality;
+
+-- Refresh table metadata
+REFRESH TABLE healthcare_analytics.fact_hospital_quality;
+
+-- Then query
+SELECT COUNT(*) FROM healthcare_analytics.fact_hospital_quality;
+```
+
+### Issue: Column Name Mismatch in Merged Data
+
+**Symptoms:**
+- `KeyError: 'rs_esatis' not in index`
+- Columns have different names after merge
+
+**Solution:**
+Check actual column names after merge:
+```python
+%pyspark
+print(pdf_merged.columns.tolist())
+```
+
+Common mistakes:
+- ESATIS has `rs_finess` not `rs_esatis`
+- After merge with suffixes, `region` becomes `region_esatis` and `region_ete`
+
+### Issue: Database Not Found
+
+**Symptoms:**
+- `Database 'healthcare_analytics' not found`
+
+**Solution:**
+```python
+%pyspark
+# Always create database first
+spark.sql("CREATE DATABASE IF NOT EXISTS healthcare_analytics")
+spark.sql("USE healthcare_analytics")
 ```
 
 ---
