@@ -126,7 +126,7 @@ fi
 print_header "4. Testing YARN"
 
 print_test "Check YARN ResourceManager"
-if curl -sf http://localhost:8088 > /dev/null; then
+if curl -sf http://localhost:8888 > /dev/null; then
     print_success "ResourceManager web UI is accessible"
 else
     print_error "ResourceManager web UI is not accessible"
@@ -213,7 +213,7 @@ fi
 print_header "7. Testing Web UI Services"
 
 print_test "Check Zeppelin web interface"
-if docker ps --format '{{.Names}}' | grep -q "^zeppelin$"; then
+if docker ps --format '{{.Names}}' | grep -q "^zeppelin.*$"; then
     if curl -sf http://localhost:8080 > /dev/null; then
         print_success "Zeppelin web interface is accessible at http://localhost:8080"
     else
@@ -225,8 +225,8 @@ fi
 
 print_test "Check Hue web interface"
 if docker ps --format '{{.Names}}' | grep -q "^hue$"; then
-    if curl -sf http://localhost:8888 > /dev/null; then
-        print_success "Hue web interface is accessible at http://localhost:8888"
+    if curl -sf http://localhost:9999 > /dev/null; then
+        print_success "Hue web interface is accessible at http://localhost:9999"
     else
         print_error "Hue container is running but web interface is not accessible"
     fi
