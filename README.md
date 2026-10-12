@@ -145,7 +145,7 @@ Access at http://localhost:8080
 docker compose --profile hue up -d
 ```
 
-Access at http://localhost:8888
+Access at http://localhost:9999
 
 ⚠️ **Note:** May crash with "Illegal instruction" errors on ARM64 due to Polars library incompatibility
 
@@ -184,12 +184,12 @@ docker compose ps
 
 **Core Services:**
 - **NameNode**: http://localhost:9870
-- **ResourceManager**: http://localhost:8088
+- **ResourceManager**: http://localhost:8888
 - **HiveServer2**: http://localhost:10002
 
 **Optional UIs (based on profile):**
 - **Zeppelin**: http://localhost:8080
-- **Hue**: http://localhost:8888
+- **Hue**: http://localhost:9999
 - **pgAdmin**: http://localhost:5050 (login: `admin@admin.com` / `admin`)
 - **Airflow**: http://localhost:8081 (login: `admin` / `admin`)
 - **NiFi**: https://localhost:8443/nifi (login: `admin` / `adminadminadmin`)
@@ -371,7 +371,7 @@ SELECT * FROM users;
 
 ### 4. Using Hue Web UI (if enabled)
 
-1. Open http://localhost:8888
+1. Open http://localhost:9999
 2. Create a user account on first access
 3. **SQL Editor**: Click "Editor" → "Hive" to run HiveQL
 4. **File Browser**: Click "Files" to browse HDFS via WebHDFS
